@@ -123,39 +123,43 @@ def get_virtual_response(request: Request, info: Info):
         print(f"Loading cache error: {e}")
         
     """
-    Call the real api before generating fake response
+    Call the real api before generating fake response (skip if toolbench_key is None)
     """
-    
-    headers = {
-    'accept': 'application/json',
-    'Content-Type': 'application/json',
-    'toolbench_key': user_key
-    }
-    os.environ['HTTP_PROXY']= ''
-    if "_for_" in tool_name_original:
-        tool_name_real = tool_name_original.split("_for_")[0]
-    else:
-        tool_name_real = tool_name_original
-    data = {
-        "category": standard_category,
-        "tool_name": tool_name_real,
-        "api_name": api_name,
-        "tool_input": tool_input,
-        "strip": "",
-        "toolbench_key": user_key
-    }
-    
-    real_response = requests.post(CONFIG['toolbench_url'], headers=headers, data=json.dumps(data))
 
-    # Check if the request was successful
-    if real_response.status_code == 200:
-        real_response = real_response.json() 
-        if check_result(real_response):
-            print("returning real_response")
-            write_log(request=info, response=real_response, type="real_response")
-            if CONFIG['is_save']:
-                save_cache(cache, tool_input, real_response, standard_category, tool_name, api_name)
-            return real_response
+    # Skip real API call if toolbench_key is None
+    if user_key is not None and user_key.lower() != "none":
+        headers = {
+        'accept': 'application/json',
+        'Content-Type': 'application/json',
+        'toolbench_key': user_key
+        }
+        os.environ['HTTP_PROXY']= ''
+        if "_for_" in tool_name_original:
+            tool_name_real = tool_name_original.split("_for_")[0]
+        else:
+            tool_name_real = tool_name_original
+        data = {
+            "category": standard_category,
+            "tool_name": tool_name_real,
+            "api_name": api_name,
+            "tool_input": tool_input,
+            "strip": "",
+            "toolbench_key": user_key
+        }
+
+        real_response = requests.post(CONFIG['toolbench_url'], headers=headers, data=json.dumps(data))
+
+        # Check if the request was successful
+        if real_response.status_code == 200:
+            real_response = real_response.json()
+            if check_result(real_response):
+                print("returning real_response")
+                write_log(request=info, response=real_response, type="real_response")
+                if CONFIG['is_save']:
+                    save_cache(cache, tool_input, real_response, standard_category, tool_name, api_name)
+                return real_response
+    else:
+        print("Skipping real API call because toolbench_key is None")
 
     """
     Fake response function here. Use the cached history response for in-context examples.
